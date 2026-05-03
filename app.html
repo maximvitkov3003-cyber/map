@@ -1,509 +1,457 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Отправить новость</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-:root{
-  --bg:#f8f9fa;--bg2:#ffffff;--card:#ffffff;--border:#e5e7eb;
-  --accent:#6366f1;--accent2:#818cf8;--text:#1f2937;--muted:#6b7280;
-  --success:#10b981;--err:#ef4444;--r:12px;
-}
-html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif}
-/* Layout */
-.app{display:flex;flex-direction:column;height:100vh}
-/* Header */
-.hdr{background:linear-gradient(135deg,#6366f1,#818cf8);padding:20px 16px;flex-shrink:0;border:none;box-shadow:0 2px 8px rgba(99,102,241,.15)}
-.hdr h1{font-size:18px;font-weight:700;color:#ffffff}
-/* Steps indicator */
-.steps{display:flex;align-items:center;gap:0;margin-top:12px}
-.si{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.3);color:#ffffff;transition:.3s;flex-shrink:0}
-.si.active{background:#ffffff;color:#6366f1;border-color:#ffffff;box-shadow:0 0 12px rgba(255,255,255,.4)}
-.si.done{background:#ffffff;border-color:#ffffff;color:#10b981}
-.sline{flex:1;height:2px;background:rgba(255,255,255,.2);transition:.3s}
-.sline.done{background:#ffffff}
-/* Content */
-.content{flex:1;overflow-y:auto;overflow-x:hidden;position:relative;padding:16px;margin-bottom:16px}
-/* Panels */
-.panel{display:none;animation:fadeIn .3s}
-.panel.active{display:block}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-/* Cards */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.card-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
-/* Textarea */
-textarea{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-size:15px;font-family:inherit;resize:none;outline:none;transition:.2s;min-height:140px}
-textarea:focus{border-color:var(--accent);background:#ffffff;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
-.char-count{text-align:right;font-size:11px;color:var(--muted);margin-top:4px}
-/* Media upload */
-.upload-zone{border:2px dashed var(--accent);border-radius:var(--r);padding:24px;text-align:center;cursor:pointer;transition:.2s;position:relative;background:#f3f4f6}
-.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(99,102,241,.08)}
-.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
-.upload-icon{font-size:32px;margin-bottom:8px}
-.upload-label{font-size:14px;color:var(--text);font-weight:500}
-.upload-sub{font-size:11px;color:var(--muted);margin-top:4px}
-/* Photo grid */
-.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
-.photo-thumb{position:relative;aspect-ratio:1;border-radius:var(--r);overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,.1)}
-.photo-thumb img{width:100%;height:100%;object-fit:cover}
-.photo-del{position:absolute;top:6px;right:6px;width:24px;height:24px;background:rgba(0,0,0,.6);border:none;border-radius:50%;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-/* Video list */
-.video-item{display:flex;align-items:center;gap:10px;background:#f3f4f6;border-radius:10px;padding:12px;margin-top:8px;border:1px solid var(--border)}
-.video-icon{font-size:24px;flex-shrink:0}
-.video-info{flex:1;min-width:0}
-.video-name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);font-weight:500}
-.video-size{font-size:11px;color:var(--muted)}
-.video-del{background:none;border:none;color:var(--err);font-size:18px;cursor:pointer;padding:4px}
-/* Progress */
-.progress-bar{height:4px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden}
-.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
-/* Upload status */
-.upload-status{font-size:12px;color:var(--accent);margin-top:6px;text-align:center;font-weight:500}
-/* Map */
-#map-container{display:none;margin-top:12px;border-radius:var(--r);overflow:hidden;position:relative;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-#map-container.show{display:block}
-#map{height:240px}
-.map-pin{position:absolute;top:50%;left:50%;transform:translate(-50%,-100%);font-size:30px;pointer-events:none;z-index:999;animation:bounce 1.5s ease-in-out infinite}
-@keyframes bounce{0%,100%{transform:translate(-50%,-100%)}50%{transform:translate(-50%,-110%)}}
-.map-coords{font-size:12px;color:var(--accent);font-family:monospace;text-align:center;margin-top:6px;font-weight:500}
-.map-search{display:flex;gap:6px;margin-bottom:8px}
-.map-search input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;outline:none}
-.map-search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.1)}
-/* Toggle */
-.toggle-row{display:flex;align-items:center;justify-content:space-between}
-.toggle{width:44px;height:24px;background:var(--border);border-radius:12px;position:relative;cursor:pointer;transition:.3s;flex-shrink:0}
-.toggle.on{background:var(--accent)}
-.toggle::after{content:'';position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;left:3px;transition:.3s}
-.toggle.on::after{left:23px}
-/* Preview */
-.preview-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.preview-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;font-weight:600}
-.preview-value{font-size:15px;line-height:1.6;color:var(--text)}
-.preview-photos{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.preview-photos img{width:60px;height:60px;border-radius:8px;object-fit:cover;box-shadow:0 2px 4px rgba(0,0,0,.1)}
-/* Buttons nav */
-.nav{display:flex;gap:10px;padding:14px 16px;flex-shrink:0;background:var(--bg2);border-top:1px solid var(--border)}
-.btn{flex:1;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit}
-.btn:active{transform:scale(.97)}
-.btn-back{background:var(--bg);color:var(--text);border:1px solid var(--border)}
-.btn-next{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 12px rgba(99,102,241,.3)}
-.btn-next:disabled{background:var(--border);box-shadow:none;cursor:not-allowed;color:var(--muted)}
-.btn-send{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 12px rgba(16,185,129,.3)}
-/* Success */
-.success-screen{display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:32px;animation:fadeIn .4s}
-.success-screen.show{display:flex}
-.success-icon{font-size:72px;margin-bottom:16px;animation:pop .4s ease}
-@keyframes pop{0%{transform:scale(0)}80%{transform:scale(1.15)}100%{transform:scale(1)}}
-.success-title{font-size:22px;font-weight:700;margin-bottom:8px;color:var(--text)}
-.success-sub{color:var(--muted);font-size:14px}
-/* Toast */
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#ffffff;border:1px solid var(--border);border-radius:20px;padding:10px 16px;font-size:13px;z-index:9999;opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;color:var(--text);box-shadow:0 4px 12px rgba(0,0,0,.1)}
-.toast.show{opacity:1}
-/* Map locate btn */
-.map-locate{position:absolute;bottom:10px;right:10px;z-index:1000;width:36px;height:36px;background:#ffffff;border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer}
-/* Leaflet overrides */
-.leaflet-container{background:#ffffff}
-.leaflet-control-zoom a{background:#ffffff!important;color:#6366f1!important;border-color:var(--border)!important}
-</style>
-.toggle::after{content:'';position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;left:3px;transition:.3s}
-.toggle.on::after{left:23px}
-/* Preview */
-.preview-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
-.preview-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.preview-value{font-size:14px;line-height:1.5}
-.preview-photos{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.preview-photos img{width:60px;height:60px;border-radius:6px;object-fit:cover}
-/* Buttons nav */
-.nav{display:flex;gap:8px;padding:12px 16px;flex-shrink:0;background:var(--bg2);border-top:1px solid var(--border)}
-.btn{flex:1;padding:13px;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit}
-.btn:active{transform:scale(.97)}
-.btn-back{background:var(--card);color:var(--text);border:1px solid var(--border)}
-.btn-next{background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff;box-shadow:0 4px 15px rgba(124,58,237,.35)}
-.btn-next:disabled{background:rgba(255,255,255,.1);box-shadow:none;cursor:not-allowed;color:var(--muted)}
-.btn-send{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;box-shadow:0 4px 15px rgba(34,197,94,.3)}
-/* Success */
-.success-screen{display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:32px;animation:fadeIn .4s}
-.success-screen.show{display:flex}
-.success-icon{font-size:72px;margin-bottom:16px;animation:pop .4s ease}
-@keyframes pop{0%{transform:scale(0)}80%{transform:scale(1.15)}100%{transform:scale(1)}}
-.success-title{font-size:22px;font-weight:700;margin-bottom:8px}
-.success-sub{color:var(--muted);font-size:14px}
-/* Toast */
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e1e35;border:1px solid var(--border);border-radius:20px;padding:8px 16px;font-size:13px;z-index:9999;opacity:0;transition:.3s;pointer-events:none;white-space:nowrap}
-.toast.show{opacity:1}
-/* Map locate btn */
-.map-locate{position:absolute;bottom:10px;right:10px;z-index:1000;width:36px;height:36px;background:#1e1e35;border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer}
-/* Leaflet overrides */
-.leaflet-container{background:#1a1a2e}
-.leaflet-control-zoom a{background:#1e1e35!important;color:#a78bfa!important;border-color:var(--border)!important}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Новости</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px 16px; /* Отступы сверху и снизу */
+            background-color: #f5f5f5;
+            color: #333;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2c2c2c;
+            text-align: center;
+        }
+
+        .input-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #444;
+            font-size: 14px;
+        }
+
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #0088cc;
+            box-shadow: 0 0 0 2px rgba(0, 136, 204, 0.2);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .media-section {
+            margin: 24px 0;
+        }
+
+        .btn {
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background: #0077b3;
+        }
+
+        .btn:active {
+            background: #006699;
+        }
+
+        .location-btn {
+            background: #585858;
+        }
+
+        .location-btn:hover {
+            background: #444;
+        }
+
+        .location-btn:active {
+            background: #333;
+        }
+
+        .preview-container {
+            margin: 16px 0;
+        }
+
+        .preview-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #444;
+        }
+
+        .preview-item {
+            position: relative;
+            display: inline-block;
+            margin: 5px;
+            width: 80px;
+            height: 80px;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        .preview-item img, .preview-item video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 16px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                padding: 16px;
+            }
+            
+            h1 {
+                font-size: 18px;
+            }
+        }
+    </style>
 </head>
 <body>
-<div class="app">
-  <div class="hdr">
-    <h1>📰 Отправить новость</h1>
-    <div class="steps">
-      <div class="si active" id="si1">1</div>
-      <div class="sline" id="sl1"></div>
-      <div class="si" id="si2">2</div>
-      <div class="sline" id="sl2"></div>
-      <div class="si" id="si3">3</div>
-      <div class="sline" id="sl3"></div>
-      <div class="si" id="si4">4</div>
-    </div>
-  </div>
-
-  <div class="content" id="content">
-    <!-- Step 1: Text -->
-    <div class="panel active" id="p1">
-      <div class="card">
-        <div class="card-title">✏️ Текст новости</div>
-        <textarea id="newsText" placeholder="Что случилось? Опишите новость подробно..." maxlength="4000"></textarea>
-        <div class="char-count"><span id="charCount">0</span>/4000</div>
-      </div>
-      <div style="font-size:13px;color:var(--muted);padding:0 4px">
-        📸 Фото, видео и геопозиция — на следующих шагах
-      </div>
-    </div>
-
-    <!-- Step 2: Media -->
-    <div class="panel" id="p2">
-      <div class="card">
-        <div class="card-title">🖼️ Фотографии <span style="font-size:11px;color:var(--muted);text-transform:none">(до 10)</span></div>
-        <div class="upload-zone" id="photoZone">
-          <input type="file" id="photoInput" accept="image/*" multiple>
-          <div class="upload-icon">📷</div>
-          <div class="upload-label">Нажмите или перетащите фото</div>
-          <div class="upload-sub">JPG, PNG, WEBP — до 5MB каждое</div>
+    <div class="container">
+        <h1>Отправить новость</h1>
+        
+        <div class="input-group">
+            <label for="newsText">Текст новости</label>
+            <textarea id="newsText" placeholder="Введите текст вашей новости..."></textarea>
         </div>
-        <div id="photoGrid" class="photo-grid"></div>
-        <div id="photoStatus" class="upload-status"></div>
-        <div id="photoProgress" class="progress-bar" style="display:none"><div class="progress-fill" id="photoFill" style="width:0%"></div></div>
-      </div>
 
-      <div class="card">
-        <div class="card-title">🎥 Видео <span style="font-size:11px;color:var(--muted);text-transform:none">(до 3, макс 5MB)</span></div>
-        <div class="upload-zone" id="videoZone">
-          <input type="file" id="videoInput" accept="video/*" multiple>
-          <div class="upload-icon">🎬</div>
-          <div class="upload-label">Нажмите для выбора видео</div>
-          <div class="upload-sub">MP4, MOV — до 5MB</div>
+        <div class="media-section">
+            <div class="input-group">
+                <label>Фото</label>
+                <input type="file" id="photoUpload" accept="image/*" multiple style="display: none;">
+                <button type="button" class="btn" onclick="document.getElementById('photoUpload').click()">Добавить фото</button>
+            </div>
+
+            <div class="preview-container">
+                <div class="preview-title">Выбранные фото:</div>
+                <div id="photoPreview"></div>
+            </div>
         </div>
-        <div id="videoList"></div>
-        <div id="videoStatus" class="upload-status"></div>
-      </div>
+
+        <div class="media-section">
+            <div class="input-group">
+                <label>Видео</label>
+                <input type="file" id="videoUpload" accept="video/*" multiple style="display: none;">
+                <button type="button" class="btn" onclick="document.getElementById('videoUpload').click()">Добавить видео</button>
+            </div>
+
+            <div class="preview-container">
+                <div class="preview-title">Выбранные видео:</div>
+                <div id="videoPreview"></div>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <button type="button" class="btn location-btn" id="getLocationBtn">Получить местоположение</button>
+        </div>
+
+        <div id="locationDisplay" style="margin: 10px 0; font-size: 14px; color: #666;"></div>
+
+        <div class="input-group">
+            <button type="button" class="btn" id="submitBtn">Отправить новость</button>
+        </div>
+
+        <div id="statusMessage" class="status"></div>
     </div>
 
-    <!-- Step 3: Location -->
-    <div class="panel" id="p3">
-      <div class="card">
-        <div class="card-title">
-          <span>📍 Геопозиция</span>
-          <span style="font-size:11px;color:var(--muted);text-transform:none;font-weight:400">(необязательно)</span>
-        </div>
-        <div class="toggle-row">
-          <span style="font-size:14px">Добавить место на карте</span>
-          <div class="toggle" id="locationToggle"></div>
-        </div>
-        <div id="map-container">
-          <div class="map-search">
-            <input type="text" id="mapSearch" placeholder="🔍 Поиск города...">
-            <div class="map-locate" onclick="locateMe()">📍</div>
-          </div>
-          <div style="position:relative">
-            <div id="map"></div>
-            <div class="map-pin">📍</div>
-          </div>
-          <div class="map-coords" id="mapCoords">Двигайте карту для выбора точки</div>
-        </div>
-      </div>
-    </div>
+    <script>
+        // Получаем доступ к Telegram WebApp
+        const telegram = window.Telegram.WebApp;
 
-    <!-- Step 4: Preview & Send -->
-    <div class="panel" id="p4">
-      <div id="previewContent"></div>
-    </div>
-  </div>
+        // Инициализация WebApp
+        telegram.ready();
 
-  <div class="nav" id="navBar">
-    <button class="btn btn-back" id="btnBack" onclick="prevStep()" style="display:none">← Назад</button>
-    <button class="btn btn-next" id="btnNext" onclick="nextStep()">Далее →</button>
-  </div>
-</div>
+        // Устанавливаем цвет фона
+        telegram.setBackgroundColor('#f5f5f5');
+        telegram.setHeaderColor('bg_color');
 
-<div class="success-screen" id="successScreen">
-  <div class="success-icon">🎉</div>
-  <div class="success-title">Новость отправлена!</div>
-  <div class="success-sub">Ожидайте публикации после проверки модератором</div>
-</div>
+        // Переменные для хранения данных
+        let selectedPhotos = [];
+        let selectedVideos = [];
+        let locationData = null;
 
-<div class="toast" id="toast"></div>
+        // Обработчик выбора фото
+        document.getElementById('photoUpload').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = document.createElement('div');
+                        img.className = 'preview-item';
+                        img.innerHTML = `
+                            <img src="${e.target.result}" alt="Preview">
+                            <button class="remove-btn" onclick="removeMedia('photo', '${file.name}')">&times;</button>
+                        `;
+                        document.getElementById('photoPreview').appendChild(img);
+                        selectedPhotos.push({
+                            name: file.name,
+                            data: e.target.result,
+                            file: file
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            // Сбрасываем инпут
+            this.value = '';
+        });
 
-<script>
-const tg = window.Telegram.WebApp;
-tg.ready();
-tg.expand();
+        // Обработчик выбора видео
+        document.getElementById('videoUpload').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                if (file.type.startsWith('video/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const vid = document.createElement('div');
+                        vid.className = 'preview-item';
+                        vid.innerHTML = `
+                            <video src="${e.target.result}" muted></video>
+                            <button class="remove-btn" onclick="removeMedia('video', '${file.name}')">&times;</button>
+                        `;
+                        document.getElementById('videoPreview').appendChild(vid);
+                        selectedVideos.push({
+                            name: file.name,
+                            data: e.target.result,
+                            file: file
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            // Сбрасываем инпут
+            this.value = '';
+        });
 
-let step = 1;
-const TOTAL = 4;
-let photoIds = [];
-let photoUrls = []; // for display
-let videoIds = [];
-let videoUrls = []; // for display
-let selLat = null, selLon = null;
-let map = null, locationEnabled = false;
+        // Функция удаления медиа
+        function removeMedia(type, fileName) {
+            if (type === 'photo') {
+                selectedPhotos = selectedPhotos.filter(p => p.name !== fileName);
+                document.getElementById('photoPreview').innerHTML = '';
+                selectedPhotos.forEach(photo => {
+                    const img = document.createElement('div');
+                    img.className = 'preview-item';
+                    img.innerHTML = `
+                        <img src="${photo.data}" alt="Preview">
+                        <button class="remove-btn" onclick="removeMedia('photo', '${photo.name}')">&times;</button>
+                    `;
+                    document.getElementById('photoPreview').appendChild(img);
+                });
+            } else if (type === 'video') {
+                selectedVideos = selectedVideos.filter(v => v.name !== fileName);
+                document.getElementById('videoPreview').innerHTML = '';
+                selectedVideos.forEach(video => {
+                    const vid = document.createElement('div');
+                    vid.className = 'preview-item';
+                    vid.innerHTML = `
+                        <video src="${video.data}" muted></video>
+                        <button class="remove-btn" onclick="removeMedia('video', '${video.name}')">&times;</button>
+                    `;
+                    document.getElementById('videoPreview').appendChild(vid);
+                });
+            }
+        }
 
-// Char counter
-const ta = document.getElementById('newsText');
-ta.addEventListener('input', () => {
-  document.getElementById('charCount').textContent = ta.value.length;
-});
+        // Получение местоположения
+        document.getElementById('getLocationBtn').addEventListener('click', function() {
+            if (navigator.geolocation) {
+                this.textContent = 'Получение...';
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        locationData = {
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude
+                        };
+                        document.getElementById('locationDisplay').innerHTML = 
+                            `📍 Местоположение получено: ${locationData.lat.toFixed(6)}, ${locationData.lon.toFixed(6)}`;
+                        document.getElementById('getLocationBtn').textContent = 'Местоположение получено';
+                    },
+                    function(error) {
+                        document.getElementById('locationDisplay').innerHTML = 
+                            `❌ Ошибка получения местоположения: ${error.message}`;
+                        document.getElementById('getLocationBtn').textContent = 'Получить местоположение';
+                    }
+                );
+            } else {
+                alert('Геолокация не поддерживается этим браузером.');
+            }
+        });
 
-// Step navigation
-function updateSteps() {
-  for (let i = 1; i <= TOTAL; i++) {
-    const si = document.getElementById('si'+i);
-    const panel = document.getElementById('p'+i);
-    if (i < step) { si.className='si done'; si.textContent='✓'; }
-    else if (i === step) { si.className='si active'; si.textContent=i; }
-    else { si.className='si'; si.textContent=i; }
-    panel.classList.toggle('active', i === step);
-    if (i < TOTAL) document.getElementById('sl'+i).classList.toggle('done', i < step);
-  }
-  document.getElementById('btnBack').style.display = step > 1 ? '' : 'none';
-  const btnNext = document.getElementById('btnNext');
-  if (step === TOTAL) {
-    btnNext.textContent = '✅ Отправить';
-    btnNext.className = 'btn btn-send';
-    btnNext.onclick = sendNews;
-  } else {
-    btnNext.textContent = 'Далее →';
-    btnNext.className = 'btn btn-next';
-    btnNext.onclick = nextStep;
-  }
-  if (step === TOTAL) buildPreview();
-  if (step === 3 && !map) initMap();
-}
+        // Отправка данных
+        document.getElementById('submitBtn').addEventListener('click', async function() {
+            const text = document.getElementById('newsText').value.trim();
+            
+            if (!text && selectedPhotos.length === 0 && selectedVideos.length === 0) {
+                showStatus('Пожалуйста, введите текст или добавьте фото/видео', 'error');
+                return;
+            }
 
-function nextStep() {
-  if (step === 1 && !ta.value.trim()) { showToast('⚠️ Введите текст новости'); return; }
-  if (step < TOTAL) { step++; updateSteps(); document.getElementById('content').scrollTop=0; }
-}
-function prevStep() {
-  if (step > 1) { step--; updateSteps(); document.getElementById('content').scrollTop=0; }
-}
+            // Отображаем статус загрузки
+            this.textContent = 'Загрузка...';
+            this.disabled = true;
 
-// Toast
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
+            try {
+                // Загружаем фото
+                const photoIds = [];
+                for (const photo of selectedPhotos) {
+                    const formData = new FormData();
+                    formData.append('file', photo.file);
+                    
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    if (result.id) {
+                        photoIds.push(result.id);
+                    }
+                }
 
-// ---- Photo upload ----
-async function compressImage(file) {
-  return new Promise(resolve => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = async () => {
-      let w = img.width, h = img.height, max = 1920;
-      if (w > max) { h = Math.round(h*max/w); w = max; }
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      c.toBlob(async blob => {
-        const formData = new FormData();
-        formData.append('file', blob, 'photo.jpg');
-        try {
-          const res = await fetch('/upload', { method: 'POST', body: formData });
-          const data = await res.json();
-          resolve({id: data.id, url: URL.createObjectURL(blob)});
-        } catch(e) { resolve(null); }
-      }, 'image/jpeg', 0.8);
-    };
-    img.src = url;
-  });
-}
+                // Загружаем видео
+                const videoIds = [];
+                for (const video of selectedVideos) {
+                    const formData = new FormData();
+                    formData.append('file', video.file);
+                    
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    if (result.id) {
+                        videoIds.push(result.id);
+                    }
+                }
 
-async function compressVideo(file) {
-  const formData = new FormData();
-  formData.append('file', file);
-  try {
-    const res = await fetch('/upload', { method: 'POST', body: formData });
-    const data = await res.json();
-    return data.id;
-  } catch(e) { return null; }
-}
+                // Подготавливаем данные для отправки в Telegram
+                const sendData = {
+                    text: text,
+                    photo_ids: photoIds,
+                    video_ids: videoIds,
+                    lat: locationData ? locationData.lat : null,
+                    lon: locationData ? locationData.lon : null
+                };
 
-document.getElementById('photoInput').addEventListener('change', async function() {
-  const files = Array.from(this.files);
-  if (!files.length) return;
-  const remaining = 10 - photoIds.length;
-  if (remaining <= 0) { showToast('⚠️ Максимум 10 фото'); return; }
-  const toUpload = files.slice(0, remaining);
-  const status = document.getElementById('photoStatus');
-  const prog = document.getElementById('photoProgress');
-  const fill = document.getElementById('photoFill');
-  prog.style.display = 'block';
-  status.textContent = 'Обрабатываю...';
-  for (let i = 0; i < toUpload.length; i++) {
-    try {
-      fill.style.width = Math.round(((i)/toUpload.length)*100)+'%';
-      const id = await compressImage(toUpload[i]);
-      if (id) {
-        photoIds.push(id);
-        addPhotoThumb(URL.createObjectURL(toUpload[i]), photoIds.length-1);
-      }
-    } catch(e) { showToast('❌ Ошибка: '+e.message); }
-  }
-  fill.style.width = '100%';
-  setTimeout(() => { prog.style.display='none'; fill.style.width='0%'; }, 500);
-  status.textContent = photoIds.length ? `✅ Загружено: ${photoIds.length}` : '';
-  this.value = '';
-});
+                // Отправляем данные в Telegram
+                telegram.sendData(JSON.stringify(sendData));
+                
+                showStatus('Новость отправлена!', 'success');
+                
+                // Сброс формы через 1.5 секунды
+                setTimeout(() => {
+                    document.getElementById('newsText').value = '';
+                    document.getElementById('photoPreview').innerHTML = '';
+                    document.getElementById('videoPreview').innerHTML = '';
+                    document.getElementById('locationDisplay').innerHTML = '';
+                    document.getElementById('getLocationBtn').textContent = 'Получить местоположение';
+                    selectedPhotos = [];
+                    selectedVideos = [];
+                    locationData = null;
+                    this.textContent = 'Отправить новость';
+                    this.disabled = false;
+                }, 1500);
 
-function addPhotoThumb(url, idx) {
-  const grid = document.getElementById('photoGrid');
-  const div = document.createElement('div');
-  div.className = 'photo-thumb';
-  div.id = 'pt'+idx;
-  div.innerHTML = `<img src="${url}"><button class="photo-del" onclick="removePhoto(${idx})">✕</button>`;
-  grid.appendChild(div);
-}
+            } catch (error) {
+                console.error('Ошибка при отправке:', error);
+                showStatus('Ошибка при отправке: ' + error.message, 'error');
+                this.textContent = 'Отправить новость';
+                this.disabled = false;
+            }
+        });
 
-function removePhoto(idx) {
-  photoIds.splice(idx, 1);
-  const grid = document.getElementById('photoGrid');
-  grid.innerHTML = '';
-  photoIds.forEach((id, i) => {
-    // Для отображения используем placeholder, но поскольку файл уже загружен, может не отображать
-    // Или хранить urls отдельно для отображения
-  });
-  document.getElementById('photoStatus').textContent = photoIds.length ? `✅ Фото: ${photoIds.length}` : '';
-}
+        // Функция отображения статуса
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 3000);
+        }
 
-// ---- Video upload ----
-document.getElementById('videoInput').addEventListener('change', async function() {
-  const files = Array.from(this.files);
-  if (!files.length) return;
-  const remaining = 3 - videoUrls.length;
-  if (remaining <= 0) { showToast('⚠️ Максимум 3 видео'); return; }
-  const toUpload = files.slice(0, remaining);
-  const status = document.getElementById('videoStatus');
-  status.textContent = 'Обрабатываю видео...';
-  for (const file of toUpload) {
-    if (file.size > 5*1024*1024) { showToast(`⚠️ "${file.name}" > 5MB, пропускаю`); continue; }
-    try {
-      const b64 = await compressVideo(file);
-      videoUrls.push(b64);
-      addVideoItem(file.name, file.size, videoUrls.length-1);
-    } catch(e) { showToast('❌ Ошибка: '+e.message); }
-  }
-  status.textContent = videoUrls.length ? `✅ Видео: ${videoUrls.length}` : '';
-  this.value = '';
-});
-
-function addVideoItem(name, size, idx) {
-  const list = document.getElementById('videoList');
-  const div = document.createElement('div');
-  div.className = 'video-item';
-  div.id = 'vi'+idx;
-  div.innerHTML = `<div class="video-icon">🎬</div><div class="video-info"><div class="video-name">${name}</div><div class="video-size">${(size/1024/1024).toFixed(1)} MB</div></div><button class="video-del" onclick="removeVideo(${idx})">✕</button>`;
-  list.appendChild(div);
-}
-
-function removeVideo(idx) {
-  videoUrls.splice(idx, 1);
-  const list = document.getElementById('videoList');
-  list.innerHTML = '';
-  videoUrls.forEach((url, i) => {
-    const div = document.createElement('div');
-    div.className='video-item'; div.id='vi'+i;
-    div.innerHTML=`<div class="video-icon">🎬</div><div class="video-info"><div class="video-name">Видео ${i+1}</div></div><button class="video-del" onclick="removeVideo(${i})">✕</button>`;
-    list.appendChild(div);
-  });
-  document.getElementById('videoStatus').textContent = videoUrls.length ? `✅ Видео: ${videoUrls.length}` : '';
-}
-
-// ---- Map ----
-document.getElementById('locationToggle').addEventListener('click', function() {
-  locationEnabled = !locationEnabled;
-  this.classList.toggle('on', locationEnabled);
-  const mc = document.getElementById('map-container');
-  mc.classList.toggle('show', locationEnabled);
-  if (locationEnabled && !map) setTimeout(initMap, 100);
-  if (!locationEnabled) { selLat=null; selLon=null; }
-});
-
-function initMap() {
-  map = L.map('map', {center:[55.7558,37.6173], zoom:12, zoomControl:true, attributionControl:false});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {subdomains:'abcd',maxZoom:19}).addTo(map);
-  let geocodeTimer;
-  function updateCoords() {
-    const c = map.getCenter();
-    selLat = parseFloat(c.lat.toFixed(6));
-    selLon = parseFloat(c.lng.toFixed(6));
-    document.getElementById('mapCoords').textContent = `📍 ${selLat}, ${selLon}`;
-  }
-  map.on('move', updateCoords);
-  updateCoords();
-  const searchInput = document.getElementById('mapSearch');
-  searchInput.addEventListener('keydown', e => { if(e.key==='Enter') searchPlace(searchInput.value); });
-}
-
-async function searchPlace(q) {
-  if (!q.trim()) return;
-  try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
-    const d = await r.json();
-    if (d.length) map.flyTo([+d[0].lat, +d[0].lon], 15);
-    else showToast('Место не найдено');
-  } catch(e) { showToast('Ошибка поиска'); }
-}
-
-function locateMe() {
-  if (!navigator.geolocation) { showToast('Геолокация недоступна'); return; }
-  showToast('⏳ Определяю...');
-  navigator.geolocation.getCurrentPosition(
-    p => map.flyTo([p.coords.latitude, p.coords.longitude], 16),
-    () => showToast('❌ Не удалось определить позицию'),
-    {timeout:8000, enableHighAccuracy:true}
-  );
-}
-
-// ---- Preview ----
-function buildPreview() {
-  const text = ta.value.trim();
-  let html = '';
-  html += `<div class="preview-card"><div class="preview-label">✏️ Текст</div><div class="preview-value">${text||'<em style="color:var(--muted)">Не указан</em>'}</div></div>`;
-  if (photoUrls.length) {
-    html += `<div class="preview-card"><div class="preview-label">🖼️ Фото (${photoUrls.length})</div><div class="preview-photos">${photoUrls.map(u=>`<img src="${u}">`).join('')}</div></div>`;
-  }
-  if (videoUrls.length) {
-    html += `<div class="preview-card"><div class="preview-label">🎥 Видео (${videoUrls.length})</div><div class="preview-value">${videoUrls.map((_,i)=>`Видео ${i+1}`).join(', ')}</div></div>`;
-  }
-  if (selLat && selLon) {
-    html += `<div class="preview-card"><div class="preview-label">📍 Геопозиция</div><div class="preview-value" style="font-family:monospace;color:var(--accent)">${selLat}, ${selLon}</div></div>`;
-  }
-  document.getElementById('previewContent').innerHTML = html;
-}
-
-// ---- Send ----
-async function sendNews() {
-  const text = ta.value.trim();
-  if (!text && !photoUrls.length && !videoUrls.length) { showToast('⚠️ Добавьте хотя бы текст или медиа'); return; }
-  const payload = {text, photos: photoUrls, videos: videoUrls, lat: selLat, lon: selLon};
-  tg.sendData(JSON.stringify(payload));
-  document.querySelector('.app').style.display = 'none';
-  document.getElementById('successScreen').classList.add('show');
-  setTimeout(() => tg.close(), 2000);
-}
-</script>
+        // Для возможности удаления медиа из глобальной области
+        window.removeMedia = removeMedia;
+    </script>
 </body>
 </html>
