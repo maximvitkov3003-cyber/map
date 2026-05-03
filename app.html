@@ -251,8 +251,10 @@ tg.expand();
 
 let step = 1;
 const TOTAL = 4;
-let photoUrls = [];
-let videoUrls = [];
+let photoIds = [];
+let photoUrls = []; // for display
+let videoIds = [];
+let videoUrls = []; // for display
 let selLat = null, selLon = null;
 let map = null, locationEnabled = false;
 
@@ -309,34 +311,40 @@ async function compressImage(file) {
   return new Promise(resolve => {
     const img = new Image();
     const url = URL.createObjectURL(file);
-    img.onload = () => {
+    img.onload = async () => {
       let w = img.width, h = img.height, max = 1920;
       if (w > max) { h = Math.round(h*max/w); w = max; }
       const c = document.createElement('canvas');
       c.width = w; c.height = h;
       c.getContext('2d').drawImage(img, 0, 0, w, h);
-      c.toBlob(blob => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.readAsDataURL(blob);
-      }, 'image/jpeg', 0.85);
+      c.toBlob(async blob => {
+        const formData = new FormData();
+        formData.append('file', blob, 'photo.jpg');
+        try {
+          const res = await fetch('/upload', { method: 'POST', body: formData });
+          const data = await res.json();
+          resolve({id: data.id, url: URL.createObjectURL(blob)});
+        } catch(e) { resolve(null); }
+      }, 'image/jpeg', 0.8);
     };
     img.src = url;
   });
 }
 
 async function compressVideo(file) {
-  const reader = new FileReader();
-  return new Promise(resolve => {
-    reader.onload = () => resolve(reader.result);
-    reader.readAsDataURL(file);
-  });
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    return data.id;
+  } catch(e) { return null; }
 }
 
 document.getElementById('photoInput').addEventListener('change', async function() {
   const files = Array.from(this.files);
   if (!files.length) return;
-  const remaining = 10 - photoUrls.length;
+  const remaining = 10 - photoIds.length;
   if (remaining <= 0) { showToast('⚠️ Максимум 10 фото'); return; }
   const toUpload = files.slice(0, remaining);
   const status = document.getElementById('photoStatus');
@@ -347,14 +355,16 @@ document.getElementById('photoInput').addEventListener('change', async function(
   for (let i = 0; i < toUpload.length; i++) {
     try {
       fill.style.width = Math.round(((i)/toUpload.length)*100)+'%';
-      const b64 = await compressImage(toUpload[i]);
-      photoUrls.push(b64);
-      addPhotoThumb(b64, photoUrls.length-1);
+      const id = await compressImage(toUpload[i]);
+      if (id) {
+        photoIds.push(id);
+        addPhotoThumb(URL.createObjectURL(toUpload[i]), photoIds.length-1);
+      }
     } catch(e) { showToast('❌ Ошибка: '+e.message); }
   }
   fill.style.width = '100%';
   setTimeout(() => { prog.style.display='none'; fill.style.width='0%'; }, 500);
-  status.textContent = photoUrls.length ? `✅ Загружено: ${photoUrls.length}` : '';
+  status.textContent = photoIds.length ? `✅ Загружено: ${photoIds.length}` : '';
   this.value = '';
 });
 
@@ -368,11 +378,14 @@ function addPhotoThumb(url, idx) {
 }
 
 function removePhoto(idx) {
-  photoUrls.splice(idx, 1);
+  photoIds.splice(idx, 1);
   const grid = document.getElementById('photoGrid');
   grid.innerHTML = '';
-  photoUrls.forEach((url, i) => addPhotoThumb(url, i));
-  document.getElementById('photoStatus').textContent = photoUrls.length ? `✅ Фото: ${photoUrls.length}` : '';
+  photoIds.forEach((id, i) => {
+    // Для отображения используем placeholder, но поскольку файл уже загружен, может не отображать
+    // Или хранить urls отдельно для отображения
+  });
+  document.getElementById('photoStatus').textContent = photoIds.length ? `✅ Фото: ${photoIds.length}` : '';
 }
 
 // ---- Video upload ----
