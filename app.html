@@ -3,39 +3,116 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Мини-приложение Telegram</title>
+  <title>Telegram Mini App — Новость</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <main class="app-shell">
-    <h1>Отправить новость</h1>
+  <div class="page-shell">
+    <div class="scene">
+      <div class="glow glow-1"></div>
+      <div class="glow glow-2"></div>
+      <div class="glow glow-3"></div>
+    </div>
 
-    <div class="notice">Здесь можно добавить текст, фото, видео и геопозицию. Откройте приложение из Telegram.</div>
+    <header class="hero-card">
+      <div class="hero-content">
+        <p class="eyebrow">Мини-приложение</p>
+        <h1>Создавайте новости прямо внутри Telegram</h1>
+        <p class="hero-text">Пишите текст, прикрепляйте фото и видео, добавляйте геолокацию — и отправляйте всё одним движением. Этот интерфейс сделан так, чтобы ваша новость выглядела презентабельно и легко читалась.</p>
+      </div>
+      <div class="hero-panel">
+        <div class="hero-badge">Готово к публикации</div>
+        <div class="hero-stats">
+          <div>
+            <span>Фото</span>
+            <strong>до 10 штук</strong>
+          </div>
+          <div>
+            <span>Видео</span>
+            <strong>до 3 файлов</strong>
+          </div>
+          <div>
+            <span>Геолокация</span>
+            <strong>одним нажатием</strong>
+          </div>
+        </div>
+      </div>
+    </header>
 
-    <form id="news-form">
-      <label for="text">Текст новости</label>
-      <textarea id="text" name="text" placeholder="Введите текст..." rows="6"></textarea>
+    <section class="feature-grid">
+      <article class="feature-card">
+        <h2>Текст</h2>
+        <p>Пишите заголовок, описывайте события, добавляйте факты и эмоции. Ваша новость автоматически подготовится для модерации.</p>
+      </article>
+      <article class="feature-card">
+        <h2>Фото и видео</h2>
+        <p>Прикрепляйте визуальные материалы, чтобы история выглядела живой. Видео расскажут больше без лишних слов.</p>
+      </article>
+      <article class="feature-card">
+        <h2>Геолокация</h2>
+        <p>Добавьте точное место события — так администраторы и читатели сразу поймут, где всё случилось.</p>
+      </article>
+      <article class="feature-card">
+        <h2>Удобство</h2>
+        <p>Сразу в Telegram: никакого отдельного сайта. Всё работает в одном окне, быстро и красиво.</p>
+      </article>
+    </section>
 
-      <label for="files">Фото / видео</label>
-      <input id="files" name="files" type="file" multiple accept="image/*,video/*">
-
-      <div class="location-row">
-        <button type="button" id="geo-button">Добавить геопозицию</button>
-        <span id="geo-status">Геопозиция не задана</span>
+    <section class="form-card">
+      <div class="form-header">
+        <div>
+          <p class="small-title">Форма новости</p>
+          <h2>Соберите материал в одном месте</h2>
+        </div>
+        <span class="pill">Время заполнения: 1–2 минуты</span>
       </div>
 
-      <div class="submit-row">
-        <button type="submit">Отправить на модерацию</button>
+      <form id="news-form" enctype="multipart/form-data" novalidate>
+        <label for="text">Текст новости</label>
+        <textarea id="text" name="text" placeholder="Опишите событие, важные детали, место и время..."></textarea>
+
+        <div class="field-row">
+          <div class="field-block">
+            <label for="files">Фото / видео</label>
+            <input id="files" name="files" type="file" multiple accept="image/*,video/*">
+          </div>
+          <div class="field-block preview-block">
+            <p class="preview-title">Выбранные файлы</p>
+            <div class="files-preview" id="files-preview">Файлы ещё не выбраны</div>
+          </div>
+        </div>
+
+        <div class="location-row">
+          <button type="button" id="geo-button" class="secondary-button">📍 Добавить геолокацию</button>
+          <span id="geo-status">Геолокация не задана</span>
+        </div>
+
+        <div class="submit-row">
+          <button type="submit" id="submit-button">Отправить на модерацию</button>
+          <p class="hint-text">Модераторы получат вашу новость, проверят и опубликуют в канале.</p>
+        </div>
+      </form>
+
+      <div id="status" class="status-box"></div>
+    </section>
+
+    <footer class="meta-card">
+      <div>
+        <p class="meta-title">Почему это удобно</p>
+        <p>Мини-приложение работает внутри Telegram и выглядит как настоящее приложение — красиво, понятно и с фокусом на контент.</p>
       </div>
-    </form>
+      <div class="meta-list">
+        <span>✅ Презентабельный внешний вид</span>
+        <span>✅ Быстрый доступ к отправке</span>
+        <span>✅ Поддержка медиа и геолокации</span>
+      </div>
+    </footer>
+  </div>
 
-    <div id="status"></div>
-
-    <input type="hidden" id="user_id" name="user_id">
-    <input type="hidden" id="username" name="username">
-    <input type="hidden" id="lat" name="lat">
-    <input type="hidden" id="lon" name="lon">
-  </main>
+  <input type="hidden" id="user_id" name="user_id">
+  <input type="hidden" id="username" name="username">
+  <input type="hidden" id="lat" name="lat">
+  <input type="hidden" id="lon" name="lon">
 
   <script src="/static/app.js"></script>
 </body>
