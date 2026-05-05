@@ -318,11 +318,28 @@ async function uploadToServer(file) {
   console.log('Uploading file:', file.name, file.size);
   const fd = new FormData();
   fd.append('file', file, file.name||'upload');
-  const r = await fetch('/upload', {method:'POST', body:fd});
-  const d = await r.json();
-  console.log('Upload response:', d);
-  if (d.error) throw new Error(d.error);
-  return d.id;
+  try {
+    const r = await fetch('/upload', {
+      method:'POST', 
+      body:fd,
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    console.log('Upload response status:', r.status, r.statusText);
+    if (!r.ok) {
+      const text = await r.text();
+      console.error('Error response:', text);
+      throw new Error(`HTTP ${r.status}: ${text}`);
+    }
+    const d = await r.json();
+    console.log('Upload response:', d);
+    if (!d.ok || d.error) throw new Error(d.error || 'Upload failed');
+    return d.file_id || d.id;
+  } catch(e) {
+    console.error('Upload error:', e);
+    throw new Error('Ошибка загрузки: ' + e.message);
+  }
 }
 
 document.getElementById('photoInput').addEventListener('change', async function() {
@@ -426,16 +443,23 @@ document.getElementById('locationToggle').addEventListener('click', function() {
 
 function initMap() {
   if (map) return;
-  map = L.map('map', {center:[55.7558,37.6173], zoom:12, zoomControl:true, attributionControl:false});
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012'}).addTo(map);
-  function updateCoords() {
-    const c = map.getCenter();
-    selLat = parseFloat(c.lat.toFixed(6));
-    selLon = parseFloat(c.lng.toFixed(6));
+  map = L.map('map', {center:[47.0105, 28.8638], zoom:13, zoomControl:true, attributionControl:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OpenStreetMap'}).addTo(map);
+  
+  let marker;
+  
+  map.on('click', function(e) {
+    selLat = parseFloat(e.latlng.lat.toFixed(6));
+    selLon = parseFloat(e.latlng.lng.toFixed(6));
+    
+    if (marker) {
+      map.removeLayer(marker);
+    }
+    
+    marker = L.marker([selLat, selLon]).addTo(map);
     document.getElementById('mapCoords').textContent = `📍 ${selLat}, ${selLon}`;
-  }
-  map.on('move', updateCoords);
-  updateCoords();
+  });
+  
   const searchInput = document.getElementById('mapSearch');
   searchInput.addEventListener('keydown', e => { if(e.key==='Enter') searchPlace(searchInput.value); });
 }
@@ -486,25 +510,57 @@ async function sendNews() {
   showToast('📤 Отправка...');
   
   try {
-    const payload = {
-      text, 
-      photos: photoData.map(p => p.id),
-      videos: videoData.map(v => v.id),
-      lat: selLat, 
-      lon: selLon
-    };
+    // Получаем информацию пользователя из Telegram
+    let userId = null;
+    let username = 'unknown';
     
-    console.log('Sending payload:', payload);
-    tg.sendData(JSON.stringify(payload));
+    // Способ 1: используем initDataUnsafe (самый простой)
+    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+      userId = tg.initDataUnsafe.user.id;
+      username = tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name || 'unknown';
+    }
+    
+    if (!userId) {
+      showToast('❌ Не удалось получить ID Telegram');
+      console.error('Cannot get user ID from Telegram');
+      return;
+    }
+    
+    console.log('User info:', {id: userId, username: username});
+    
+    const formData = new FormData();
+    formData.append('user_id', userId);
+    formData.append('username', username);
+    formData.append('text', text);
+    formData.append('lat', selLat || '');
+    formData.append('lon', selLon || '');
+    
+    photoData.forEach(p => formData.append('photo_ids', p.id));
+    videoData.forEach(v => formData.append('video_ids', v.id));
+    
+    console.log('Sending to server:', {user_id: userId, username, text: text.substring(0, 50), photos: photoData.length, videos: videoData.length});
+    
+    const response = await fetch('/submit', {method: 'POST', body: formData});
+    const result = await response.json();
+    
+    console.log('Server response status:', response.status);
+    console.log('Server response:', result);
+    
+    if (!result.ok) {
+      showToast('❌ Ошибка: ' + (result.error || 'Неизвестная ошибка'));
+      console.error('Server error:', result);
+      return;
+    }
+    
+    showToast('✅ ' + (result.message || 'Новость отправлена!'));
+    
+    document.querySelector('.app').style.display = 'none';
+    document.getElementById('successScreen').classList.add('show');
+    setTimeout(() => tg.close(), 2000);
   } catch (e) {
     showToast('❌ Ошибка подготовки: ' + e.message);
-    console.error(e);
-    return;
+    console.error('Error:', e);
   }
-  
-  document.querySelector('.app').style.display = 'none';
-  document.getElementById('successScreen').classList.add('show');
-  setTimeout(() => tg.close(), 2000);
 }
 
 // Initialize
